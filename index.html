@@ -1,0 +1,1347 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <meta name="theme-color" content="#110608" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="manifest" href="./manifest.json" />
+  <title>Breathwork Trainer</title>
+
+  <style>
+    :root{
+      --bg:#110608;
+      --card:rgba(255,255,255,.05);
+      --text:#f2e0e0;
+      --muted:rgba(242,224,224,.82);
+      --muted2:rgba(242,224,224,.60);
+      --ring:rgba(180,60,60,.28);
+      --accent:#c44a4a;
+      --accentSoft:#8b2e2e;
+      --danger:#ff6b6b;
+      --shadow:0 18px 55px rgba(0,0,0,.55);
+      --controlBg: rgba(40,12,14,.72);
+      --controlBorder: rgba(180,60,60,.28);
+
+      --phasePulse: 0;
+    }
+
+    *{ box-sizing:border-box; }
+
+    body{
+      margin:0;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(800px 500px at 50% 20%, rgba(140,30,30,.22), transparent 60%),
+        radial-gradient(600px 400px at 30% 85%, rgba(100,20,20,.12), transparent 55%),
+        var(--bg);
+      min-height:100vh;
+      min-height:100dvh;
+      display:flex;
+      flex-direction:column;
+      overflow-x:hidden;
+      -webkit-tap-highlight-color:transparent;
+    }
+
+    .bgTint{
+      position:fixed;
+      inset:-40px;
+      z-index:-1;
+      pointer-events:none;
+      background: transparent;
+      transition: background-color 850ms ease;
+    }
+
+    .bgPulse{
+      position:fixed;
+      inset:-40px;
+      z-index:-1;
+      pointer-events:none;
+      background: transparent;
+      opacity: calc(0.06 + (var(--phasePulse) * 0.10));
+      transition: opacity 120ms ease;
+      mix-blend-mode: screen;
+    }
+
+    .app{
+      width:100%;
+      max-width:100vw;
+      flex:1;
+      display:flex;
+      flex-direction:column;
+      padding:16px 16px env(safe-area-inset-bottom, 12px);
+    }
+
+    header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+      margin-bottom:6px;
+      flex-shrink:0;
+    }
+    h1{
+      font-size:16px;
+      margin:0;
+      font-weight:700;
+      letter-spacing:.2px;
+      color:var(--accent);
+    }
+    .headerRight{
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+    .meta{ font-size:11px; color:var(--muted2); }
+
+    /* Sound toggle */
+    .soundBtn{
+      appearance:none;
+      background:none;
+      border:1px solid var(--controlBorder);
+      border-radius:10px;
+      color:var(--muted2);
+      width:38px;
+      height:38px;
+      min-width:38px;
+      min-height:38px;
+      padding:0;
+      display:grid;
+      place-items:center;
+      cursor:pointer;
+      box-shadow:none;
+      transition: color .2s ease, border-color .2s ease, background .2s ease;
+    }
+    .soundBtn:hover{ background:rgba(180,60,60,.12); }
+    .soundBtn.active{
+      color:var(--accent);
+      border-color:rgba(196,74,74,.50);
+      background:rgba(196,74,74,.10);
+    }
+    .soundBtn svg{ width:18px; height:18px; fill:currentColor; }
+
+    .topRow{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:space-between;
+      margin:4px 0 6px;
+      flex-shrink:0;
+    }
+
+    .selectWrap{
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+      width:100%;
+    }
+
+    label{ font-size:11px; color:var(--muted2); }
+
+    select{
+      appearance:none;
+      background:var(--controlBg);
+      border:1px solid var(--controlBorder);
+      color:var(--text);
+      padding:10px 12px;
+      border-radius:12px;
+      font-weight:700;
+      font-size:13px;
+      width:100%;
+      box-shadow: 0 8px 20px rgba(0,0,0,.30);
+      outline:none;
+    }
+    select:focus{
+      border-color: rgba(196,74,74,.65);
+      box-shadow: 0 0 0 3px rgba(196,74,74,.20), 0 8px 20px rgba(0,0,0,.30);
+    }
+    option, optgroup{ background:#1a0a0c; color:var(--text); }
+    optgroup{ font-weight:800; }
+
+    .stage{
+      text-align:center;
+      margin:6px 0 4px;
+      font-size:22px;
+      font-weight:760;
+      letter-spacing:.3px;
+      color:var(--accent);
+      flex-shrink:0;
+    }
+
+    /* --- VISUAL: Big circle area --- */
+    .visual{
+      flex:1;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      min-height:0;
+      position:relative;
+    }
+
+    .circleWrap{
+      --cSize: min(88vw, 88vw, 52vh);
+      width: var(--cSize);
+      height: var(--cSize);
+      display:grid;
+      place-items:center;
+      position:relative;
+      border-radius:999px;
+      background: radial-gradient(circle at 50% 35%, rgba(180,50,50,.22), rgba(120,30,30,.08) 50%, transparent 70%);
+      overflow:hidden;
+      flex-shrink:0;
+    }
+    .circleWrap::before{
+      content:"";
+      position:absolute;
+      inset:0;
+      border-radius:999px;
+      border:1px solid var(--ring);
+    }
+
+    .circle{
+      --p: 0;
+      width: 55%;
+      height: 55%;
+      border-radius:999px;
+      background: radial-gradient(circle at 35% 25%,
+        rgba(255,255,255,.18),
+        rgba(196,74,74,.22) 30%,
+        rgba(139,46,46,.14) 55%,
+        rgba(80,20,20,.06) 100%);
+      border:1px solid rgba(255,200,200,.14);
+      box-shadow: 0 14px 60px rgba(180,40,40,.22);
+      transform: scale(calc(1 + (var(--p) * .85)));
+      will-change: transform;
+      transition: transform 80ms linear;
+    }
+
+    /* Seconds inside circle — slide transition */
+    .circleNumber{
+      position:absolute;
+      inset:0;
+      display:grid;
+      place-items:center;
+      user-select:none;
+      pointer-events:none;
+      overflow:hidden;
+    }
+
+    .numSlider{
+      position:relative;
+      width:120px;
+      height:80px;
+      overflow:hidden;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+
+    .numCurrent, .numNext{
+      position:absolute;
+      font-weight:850;
+      font-size:68px;
+      letter-spacing:-1px;
+      color:rgba(255,240,240,.90);
+      text-shadow: 0 8px 30px rgba(0,0,0,.50);
+      transition: transform 0.32s cubic-bezier(0.16,1,0.3,1), opacity 0.32s cubic-bezier(0.16,1,0.3,1);
+      will-change: transform, opacity;
+    }
+
+    .numCurrent{
+      transform: translateY(0);
+      opacity:1;
+    }
+    .numCurrent.exit{
+      transform: translateY(-100%);
+      opacity:0;
+    }
+
+    .numNext{
+      transform: translateY(100%);
+      opacity:0;
+    }
+    .numNext.enter{
+      transform: translateY(0);
+      opacity:1;
+    }
+
+    .smallLabel{
+      position:absolute;
+      bottom: calc(50% - 52px);
+      font-size:11px;
+      font-weight:800;
+      color:rgba(242,224,224,.65);
+      letter-spacing:.25px;
+      text-transform:uppercase;
+    }
+
+    /* Info panel — collapsible on mobile */
+    .side{
+      background: rgba(40,12,14,.45);
+      border: 1px solid rgba(180,60,60,.18);
+      border-radius:14px;
+      padding:12px;
+      margin-top:6px;
+      flex-shrink:0;
+    }
+
+    .side h2{ font-size:12px; margin:0 0 4px; color:var(--accent); letter-spacing:.2px; font-weight:800; }
+    .side p{ margin:4px 0; font-size:11px; color:var(--muted); line-height:1.45; }
+
+    .infoToggle{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      cursor:pointer;
+      -webkit-tap-highlight-color:transparent;
+    }
+    .infoToggle .arrow{
+      font-size:14px;
+      color:var(--muted2);
+      transition:transform .2s ease;
+    }
+    .infoToggle .arrow.open{ transform:rotate(180deg); }
+    .infoBody{ display:none; }
+    .infoBody.open{ display:block; }
+
+    .hud{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      margin-top:8px;
+      color:var(--muted2);
+      font-size:12px;
+      flex-shrink:0;
+    }
+    .hud b{ color:var(--text); font-weight:800; }
+
+    .controls{
+      display:flex;
+      gap:10px;
+      justify-content:center;
+      margin-top:10px;
+      flex-shrink:0;
+      padding-bottom:8px;
+    }
+
+    button{
+      appearance:none;
+      border:1px solid var(--controlBorder);
+      background:var(--controlBg);
+      color:var(--text);
+      padding:12px 16px;
+      border-radius:14px;
+      cursor:pointer;
+      font-weight:800;
+      font-size:14px;
+      letter-spacing:.15px;
+      box-shadow: 0 8px 20px rgba(0,0,0,.30);
+      transition: transform .08s ease, background .2s ease, border-color .2s ease;
+      min-width:44%;
+      min-height:48px;
+    }
+    button:hover{ background:rgba(180,60,60,.18); }
+    button:active{ transform: translateY(1px); background:rgba(180,60,60,.24); }
+    button:disabled{ cursor:not-allowed; opacity:.55; }
+
+    .primary{ border-color: rgba(196,74,74,.50); }
+    .danger{ border-color: rgba(255,107,107,.35); }
+
+    .warn{
+      margin-top:6px;
+      font-size:11px;
+      color: rgba(255,220,220,.90);
+      border: 1px solid rgba(255,107,107,.28);
+      background: rgba(255,60,60,.10);
+      padding:8px 10px;
+      border-radius:12px;
+      line-height:1.4;
+      display:none;
+    }
+
+    .installHint{
+      margin-top:8px;
+      font-size:10px;
+      color:var(--muted2);
+      text-align:center;
+      line-height:1.3;
+      flex-shrink:0;
+    }
+
+    /* Landscape phones */
+    @media (orientation: landscape) and (max-height: 500px){
+      .circleWrap{
+        --cSize: min(60vw, 70vh);
+      }
+      .stage{ font-size:18px; margin:2px 0; }
+    }
+
+    /* Bigger phones (414px+) */
+    @media (min-width: 414px){
+      .circleWrap{
+        --cSize: min(86vw, 55vh);
+      }
+      .numCurrent, .numNext{ font-size:76px; }
+    }
+
+    /* Tablets and larger */
+    @media (min-width: 768px){
+      body{ padding:24px; justify-content:center; align-items:center; }
+      .app{
+        max-width:480px;
+        background:var(--card);
+        border:1px solid rgba(180,60,60,.12);
+        border-radius:22px;
+        box-shadow:var(--shadow);
+        backdrop-filter:blur(10px);
+        padding:20px 20px 16px;
+      }
+      .circleWrap{
+        --cSize: min(380px, 50vh);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="bgTint" id="bgTint" aria-hidden="true"></div>
+  <div class="bgPulse" id="bgPulse" aria-hidden="true"></div>
+
+  <main class="app" role="application" aria-label="Breathwork trainer">
+    <header>
+      <div>
+        <h1>Breathwork Trainer</h1>
+        <div class="meta">Pick a technique, start, breathe with the circle</div>
+      </div>
+      <div class="headerRight">
+        <button class="soundBtn" id="soundBtn" aria-label="Toggle sound" title="Toggle sound">
+          <!-- Speaker off icon (default) -->
+          <svg id="soundIconOff" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M11 5L6 9H2v6h4l5 4V5z"/>
+            <line x1="23" y1="9" x2="17" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <line x1="17" y1="9" x2="23" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <!-- Speaker on icon (when active) -->
+          <svg id="soundIconOn" style="display:none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M11 5L6 9H2v6h4l5 4V5z"/>
+            <path d="M15.54 8.46a5 5 0 010 7.07" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M19.07 4.93a10 10 0 010 14.14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <div class="meta" id="status">Stopped</div>
+      </div>
+    </header>
+
+    <div class="topRow">
+      <div class="selectWrap">
+        <label for="technique">Technique</label>
+        <select id="technique"></select>
+      </div>
+    </div>
+
+    <div class="stage" id="stageLabel">Ready</div>
+
+    <section class="visual" aria-hidden="true">
+      <div class="circleWrap">
+        <div class="circle" id="circle"></div>
+        <div class="circleNumber" id="circleNumber">
+          <div class="numSlider">
+            <div class="numCurrent" id="numCurrent">&mdash;</div>
+            <div class="numNext" id="numNext"></div>
+          </div>
+          <div class="smallLabel" id="phaseMini">Press Start</div>
+        </div>
+      </div>
+    </section>
+
+    <aside class="side" aria-label="Technique info">
+      <div class="infoToggle" id="infoToggle">
+        <h2 style="margin:0;font-size:12px;color:var(--muted2);">Details</h2>
+        <span class="arrow" id="infoArrow">&#9660;</span>
+      </div>
+      <div class="infoBody" id="infoBody">
+        <h2 id="infoTitle">Technique info</h2>
+        <p id="infoUse">Select a technique to see its intended use and steps.</p>
+        <p id="infoHow"></p>
+        <div class="meta" id="totals" style="margin-top:4px;">Cycle length: &mdash;</div>
+        <div class="warn" id="warning"></div>
+      </div>
+    </aside>
+
+    <div class="hud">
+      <div>Cycles: <b id="cycles">0</b></div>
+      <div>Phase: <b id="phase">&mdash;</b></div>
+    </div>
+
+    <div class="controls">
+      <button class="primary" id="startStopBtn">Start</button>
+      <button class="danger" id="resetBtn">Reset</button>
+    </div>
+
+    <div class="installHint" id="installHint">
+      Install: open in Chrome &rarr; menu &rarr; <b>Add to Home screen</b>
+    </div>
+  </main>
+
+  <script>
+    // =====================
+    // PWA: service worker registration
+    // =====================
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+      });
+    }
+
+    // =====================
+    // WAKE LOCK — keep screen on while running
+    // =====================
+    let wakeLock = null;
+
+    async function requestWakeLock(){
+      if (!('wakeLock' in navigator)) return;
+      try {
+        wakeLock = await navigator.wakeLock.request('screen');
+        wakeLock.addEventListener('release', () => { wakeLock = null; });
+      } catch(e){
+        // Wake Lock denied (e.g. low battery) — silently continue
+      }
+    }
+
+    function releaseWakeLock(){
+      if (wakeLock){
+        wakeLock.release().catch(() => {});
+        wakeLock = null;
+      }
+    }
+
+    // Re-acquire wake lock when returning to the tab
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && running){
+        requestWakeLock();
+      }
+    });
+
+    // =====================
+    // AUDIO ENGINE — Wood chime sounds
+    // =====================
+    let audioCtx = null;
+    let soundEnabled = false;
+    let lastChimePhaseType = null;
+
+    // Each phase gets a distinct chime pitch (Hz) — pentatonic, warm
+    const CHIME_NOTES = {
+      inhale: [396, 528],     // G4 + C5 (two gentle tones, rising feel)
+      hold:   [352],          // F4 (single, steady)
+      exhale: [528, 396],     // C5 + G4 (two tones, descending feel)
+      idle:   [],
+    };
+
+    function initAudio(){
+      if (audioCtx) return;
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+
+    function resumeAudio(){
+      if (audioCtx && audioCtx.state === 'suspended'){
+        audioCtx.resume().catch(() => {});
+      }
+    }
+
+    // Synthesize a single wood chime hit
+    function playChimeNote(freq, delay, volume){
+      if (!audioCtx) return;
+      const t = audioCtx.currentTime + delay;
+
+      // 1) Sine body — the tonal "ring"
+      const osc = audioCtx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+
+      // Gentle detune for warmth
+      const osc2 = audioCtx.createOscillator();
+      osc2.type = 'sine';
+      osc2.frequency.value = freq * 2.01; // slightly sharp octave = woody shimmer
+
+      const oscGain = audioCtx.createGain();
+      oscGain.gain.setValueAtTime(0, t);
+      oscGain.gain.linearRampToValueAtTime(volume * 0.22, t + 0.004); // fast attack
+      oscGain.gain.exponentialRampToValueAtTime(0.001, t + 1.4);      // long decay
+
+      const osc2Gain = audioCtx.createGain();
+      osc2Gain.gain.setValueAtTime(0, t);
+      osc2Gain.gain.linearRampToValueAtTime(volume * 0.07, t + 0.003);
+      osc2Gain.gain.exponentialRampToValueAtTime(0.001, t + 0.6); // octave fades faster
+
+      // 2) Filtered noise burst — the "wood" attack
+      const bufLen = audioCtx.sampleRate * 0.06; // 60ms noise
+      const noiseBuf = audioCtx.createBuffer(1, bufLen, audioCtx.sampleRate);
+      const data = noiseBuf.getChannelData(0);
+      for (let i = 0; i < bufLen; i++) data[i] = (Math.random() * 2 - 1);
+
+      const noise = audioCtx.createBufferSource();
+      noise.buffer = noiseBuf;
+
+      const noiseFilter = audioCtx.createBiquadFilter();
+      noiseFilter.type = 'bandpass';
+      noiseFilter.frequency.value = freq * 1.5;
+      noiseFilter.Q.value = 2.5;
+
+      const noiseGain = audioCtx.createGain();
+      noiseGain.gain.setValueAtTime(0, t);
+      noiseGain.gain.linearRampToValueAtTime(volume * 0.12, t + 0.002);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+
+      // 3) Master output with soft compressor feel
+      const master = audioCtx.createGain();
+      master.gain.value = 1.0;
+
+      osc.connect(oscGain).connect(master);
+      osc2.connect(osc2Gain).connect(master);
+      noise.connect(noiseFilter).connect(noiseGain).connect(master);
+      master.connect(audioCtx.destination);
+
+      osc.start(t);
+      osc.stop(t + 1.5);
+      osc2.start(t);
+      osc2.stop(t + 0.7);
+      noise.start(t);
+      noise.stop(t + 0.07);
+    }
+
+    // Play the chime pattern for a given phase type
+    function playChime(phaseType){
+      if (!audioCtx || !soundEnabled) return;
+      const notes = CHIME_NOTES[phaseType];
+      if (!notes || notes.length === 0) return;
+
+      notes.forEach((freq, i) => {
+        // Stagger notes slightly for a natural feel
+        playChimeNote(freq, i * 0.12, 1.0);
+      });
+    }
+
+    // Called on phase transitions — only chimes when the phase type changes
+    function setToneForPhase(phaseType, progress){
+      if (!audioCtx || !soundEnabled) return;
+      if (phaseType === 'idle'){
+        lastChimePhaseType = 'idle';
+        return;
+      }
+      if (lastChimePhaseType !== phaseType){
+        lastChimePhaseType = phaseType;
+        playChime(phaseType);
+      }
+    }
+
+    function silenceTone(){
+      lastChimePhaseType = null;
+      // Chimes are fire-and-forget, nothing to silence
+    }
+
+    // Clock-like tick at each second
+    function playTick(){
+      if (!audioCtx || !soundEnabled) return;
+      const t = audioCtx.currentTime;
+
+      // Short sine "click" — like a wooden clock mechanism
+      const osc = audioCtx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(1800, t);           // high initial click
+      osc.frequency.exponentialRampToValueAtTime(600, t + 0.015); // drop fast
+
+      const oscGain = audioCtx.createGain();
+      oscGain.gain.setValueAtTime(0.04, t);             // soft
+      oscGain.gain.exponentialRampToValueAtTime(0.001, t + 0.045); // very short decay
+
+      // Tiny filtered noise for the "mechanical" texture
+      const bufLen = Math.floor(audioCtx.sampleRate * 0.012); // 12ms
+      const noiseBuf = audioCtx.createBuffer(1, bufLen, audioCtx.sampleRate);
+      const nd = noiseBuf.getChannelData(0);
+      for (let i = 0; i < bufLen; i++) nd[i] = (Math.random() * 2 - 1);
+
+      const noise = audioCtx.createBufferSource();
+      noise.buffer = noiseBuf;
+
+      const nf = audioCtx.createBiquadFilter();
+      nf.type = 'highpass';
+      nf.frequency.value = 3000;
+
+      const ng = audioCtx.createGain();
+      ng.gain.setValueAtTime(0.025, t);
+      ng.gain.exponentialRampToValueAtTime(0.001, t + 0.018);
+
+      osc.connect(oscGain).connect(audioCtx.destination);
+      noise.connect(nf).connect(ng).connect(audioCtx.destination);
+
+      osc.start(t);
+      osc.stop(t + 0.07);
+      noise.start(t);
+      noise.stop(t + 0.015);
+    }
+
+    // Sound toggle
+    const soundBtn = document.getElementById('soundBtn');
+    const soundIconOff = document.getElementById('soundIconOff');
+    const soundIconOn = document.getElementById('soundIconOn');
+
+    soundBtn.addEventListener('click', () => {
+      soundEnabled = !soundEnabled;
+
+      if (soundEnabled){
+        initAudio();
+        resumeAudio();
+        soundBtn.classList.add('active');
+        soundIconOff.style.display = 'none';
+        soundIconOn.style.display = 'block';
+      } else {
+        silenceTone();
+        soundBtn.classList.remove('active');
+        soundIconOff.style.display = 'block';
+        soundIconOn.style.display = 'none';
+      }
+    });
+
+    // =====================
+    // BACKGROUND TIMER — keeps running when rAF is throttled
+    // =====================
+    let bgTimerId = null;
+
+    function startBackgroundTimer(){
+      if (bgTimerId) return;
+      bgTimerId = setInterval(() => {
+        if (!running) return;
+        // This ensures phase transitions happen even if rAF is paused
+        const phase = currentPhase();
+        if (!phase) return;
+        const elapsed = performance.now() - phaseStartMs;
+        const durMs = phase.seconds * 1000;
+        if (elapsed >= durMs){
+          stepToNextPhase();
+        }
+        // Trigger chime on phase transition in background
+        if (soundEnabled && audioCtx){
+          const ph = currentPhase();
+          if (ph){
+            const type = inferPhaseType(ph);
+            setToneForPhase(type, 0);
+          }
+        }
+      }, 100); // 10 Hz — good enough for phase transitions
+    }
+
+    function stopBackgroundTimer(){
+      if (bgTimerId){
+        clearInterval(bgTimerId);
+        bgTimerId = null;
+      }
+    }
+
+    // =====================
+    // Info panel toggle
+    // =====================
+    const infoToggle = document.getElementById('infoToggle');
+    const infoBody = document.getElementById('infoBody');
+    const infoArrow = document.getElementById('infoArrow');
+    infoToggle.addEventListener('click', () => {
+      infoBody.classList.toggle('open');
+      infoArrow.classList.toggle('open');
+    });
+
+    // =====================
+    // Breathwork Trainer logic
+    // =====================
+    const circle = document.getElementById('circle');
+    const stageLabel = document.getElementById('stageLabel');
+    const cyclesEl = document.getElementById('cycles');
+    const phaseEl = document.getElementById('phase');
+    const startStopBtn = document.getElementById('startStopBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const statusEl = document.getElementById('status');
+    const techniqueSel = document.getElementById('technique');
+    const totalsEl = document.getElementById('totals');
+
+    const numCurrent = document.getElementById('numCurrent');
+    const numNext = document.getElementById('numNext');
+    const phaseMini = document.getElementById('phaseMini');
+
+    const bgTint = document.getElementById('bgTint');
+    const bgPulse = document.getElementById('bgPulse');
+
+    const infoTitle = document.getElementById('infoTitle');
+    const infoUse = document.getElementById('infoUse');
+    const infoHow = document.getElementById('infoHow');
+    const warningEl = document.getElementById('warning');
+
+    // Slide transition state
+    let displayedNumber = null;
+    let slideAnimating = false;
+
+    function slideToNumber(newNum){
+      const newStr = String(newNum);
+      if (newStr === displayedNumber) return;
+
+      // Play tick on each number change
+      if (running) playTick();
+
+      if (slideAnimating) {
+        numCurrent.classList.remove('exit');
+        numNext.classList.remove('enter');
+        numCurrent.textContent = numNext.textContent;
+      }
+
+      displayedNumber = newStr;
+
+      numNext.textContent = newStr;
+      numNext.style.transform = 'translateY(100%)';
+      numNext.style.opacity = '0';
+      numNext.classList.remove('enter');
+      numCurrent.classList.remove('exit');
+
+      void numNext.offsetHeight;
+
+      slideAnimating = true;
+
+      numCurrent.classList.add('exit');
+      numNext.classList.add('enter');
+
+      setTimeout(() => {
+        numCurrent.textContent = newStr;
+        numCurrent.classList.remove('exit');
+        numCurrent.style.transform = '';
+        numCurrent.style.opacity = '';
+
+        numNext.classList.remove('enter');
+        numNext.style.transform = 'translateY(100%)';
+        numNext.style.opacity = '0';
+        numNext.textContent = '';
+
+        slideAnimating = false;
+      }, 330);
+    }
+
+    function setSecondsInCircle(secs){
+      slideToNumber(secs);
+    }
+
+    function resetNumberDisplay(text){
+      displayedNumber = null;
+      slideAnimating = false;
+      numCurrent.textContent = text || '\u2014';
+      numCurrent.classList.remove('exit');
+      numCurrent.style.transform = '';
+      numCurrent.style.opacity = '';
+      numNext.textContent = '';
+      numNext.classList.remove('enter');
+      numNext.style.transform = 'translateY(100%)';
+      numNext.style.opacity = '0';
+    }
+
+
+    function makeConnectedBreaths({ breaths, inhaleSec, exhaleSec, peakP=1, troughP=0 }){
+      const phases = [];
+      for (let i = 0; i < breaths; i++){
+        phases.push({ label:'Inhale', seconds: inhaleSec, fromP: troughP, toP: peakP, pulse:true });
+        phases.push({ label:'Exhale', seconds: exhaleSec, fromP: peakP, toP: troughP, pulse:true });
+      }
+      return phases;
+    }
+
+    const TECHNIQUES = [
+      // Calm & Sleep
+      {
+        id: '478',
+        category: 'Calm & Sleep',
+        name: '4-7-8 (Relaxing Breath)',
+        use: 'Calming the nervous system, easing anxiety, helping sleep onset.',
+        how: 'Inhale 4s \u2192 Hold 7s \u2192 Exhale 8s. Repeat for a few cycles.',
+        warn: '',
+        sequence: [
+          { label:'Inhale', seconds:4, fromP:0, toP:1 },
+          { label:'Hold', seconds:7, fromP:1, toP:1 },
+          { label:'Exhale', seconds:8, fromP:1, toP:0 },
+        ],
+      },
+      {
+        id: 'sigh',
+        category: 'Calm & Sleep',
+        name: 'Cyclic Sighing (Double Inhale + Long Exhale)',
+        use: 'Rapid downshift (calm) and mood lift; good when stressed.',
+        how: 'Deep inhale ~2s \u2192 top-up inhale ~1s \u2192 long exhale ~6s.',
+        warn: 'If you feel lightheaded, shorten the session or switch to slower breathing.',
+        sequence: [
+          { label:'Inhale', seconds:2, fromP:0, toP:0.75 },
+          { label:'Top-up', seconds:1, fromP:0.75, toP:1 },
+          { label:'Exhale', seconds:6, fromP:1, toP:0 },
+        ],
+      },
+      {
+        id: 'dia',
+        category: 'Calm & Sleep',
+        name: 'Diaphragmatic (4-6)',
+        use: 'Basic relaxation, lowering arousal; good default daily practice.',
+        how: 'Belly-breathe: Inhale 4s \u2192 Exhale 6s (slow, smooth).',
+        warn: '',
+        sequence: [
+          { label:'Inhale', seconds:4, fromP:0, toP:1 },
+          { label:'Exhale', seconds:6, fromP:1, toP:0 },
+        ],
+      },
+      {
+        id: 'bhramari',
+        category: 'Calm & Sleep',
+        name: 'Bhramari (Humming Exhale)',
+        use: 'Quick relaxation; the humming can feel soothing and grounding.',
+        how: 'Inhale 4s \u2192 Hum on exhale 6s (steady "mmm").',
+        warn: '',
+        sequence: [
+          { label:'Inhale', seconds:4, fromP:0, toP:1 },
+          { label:'Hum Exhale', seconds:6, fromP:1, toP:0 },
+        ],
+      },
+
+      // Focus & Steady
+      {
+        id: 'box4',
+        category: 'Focus & Steady',
+        name: 'Box Breathing (4-4-4-4)',
+        use: 'Stress control, focus, steadying emotions ("tactical" breathing).',
+        how: 'Inhale 4s \u2192 Hold 4s \u2192 Exhale 4s \u2192 Hold 4s.',
+        warn: '',
+        sequence: [
+          { label:'Inhale', seconds:4, fromP:0, toP:1 },
+          { label:'Hold', seconds:4, fromP:1, toP:1 },
+          { label:'Exhale', seconds:4, fromP:1, toP:0 },
+          { label:'Hold', seconds:4, fromP:0, toP:0 },
+        ],
+      },
+      {
+        id: 'resonance',
+        category: 'Focus & Steady',
+        name: 'Resonance / Coherent Breathing (5-5)',
+        use: 'Increasing HRV, calming, emotional regulation, gentle focus.',
+        how: 'Breathe ~6 breaths/min: Inhale 5s \u2192 Exhale 5s. No holds.',
+        warn: '',
+        sequence: [
+          { label:'Inhale', seconds:5, fromP:0, toP:1 },
+          { label:'Exhale', seconds:5, fromP:1, toP:0 },
+        ],
+      },
+      {
+        id: 'alt',
+        category: 'Focus & Steady',
+        name: 'Alternate Nostril (Simplified 4-4)',
+        use: 'Balancing attention and calm; many find it centering.',
+        how: 'Left inhale 4s \u2192 Right exhale 4s \u2192 Right inhale 4s \u2192 Left exhale 4s.',
+        warn: 'This timer can\u2019t detect nostrils\u2014use the labels as prompts.',
+        sequence: [
+          { label:'Left Inhale', seconds:4, fromP:0, toP:1 },
+          { label:'Right Exhale', seconds:4, fromP:1, toP:0 },
+          { label:'Right Inhale', seconds:4, fromP:0, toP:1 },
+          { label:'Left Exhale', seconds:4, fromP:1, toP:0 },
+        ],
+      },
+      {
+        id: 'ujjayi',
+        category: 'Focus & Steady',
+        name: 'Ujjayi (Ocean Breath, 4-6)',
+        use: 'Steady focus and calm; great during movement or stretching.',
+        how: 'Inhale 4s \u2192 Exhale 6s through the nose with a soft "ocean" throat constriction.',
+        warn: '',
+        sequence: [
+          { label:'Inhale', seconds:4, fromP:0, toP:1 },
+          { label:'Exhale', seconds:6, fromP:1, toP:0 },
+        ],
+      },
+
+      // Cooling & Reset
+      {
+        id: 'sheetali',
+        category: 'Cooling & Reset',
+        name: 'Sheetali/Sheetkari (Cooling Breath, 4-6)',
+        use: 'Cooling down, reducing agitation; useful after heat/exertion.',
+        how: 'Inhale 4s (through rolled tongue or teeth) \u2192 Exhale 6s through the nose.',
+        warn: 'Skip if you feel cold or have respiratory irritation.',
+        sequence: [
+          { label:'Cooling Inhale', seconds:4, fromP:0, toP:1 },
+          { label:'Nasal Exhale', seconds:6, fromP:1, toP:0 },
+        ],
+      },
+
+      // Breathing Control
+      {
+        id: 'buteyko',
+        category: 'Breathing Control (CO\u2082 Tolerance)',
+        name: 'Buteyko (Reduced Breathing + Control Pause)',
+        use: 'Training tolerance to CO\u2082, reducing over-breathing; often used for asthma/hyperventilation patterns.',
+        how: 'Gentle nasal inhale 2s \u2192 gentle nasal exhale 3s \u2192 hold after exhale 5s. Keep it light.',
+        warn: 'Keep breaths SMALL. If it feels stressful, shorten the hold.',
+        sequence: [
+          { label:'Light Inhale', seconds:2, fromP:0, toP:0.55 },
+          { label:'Light Exhale', seconds:3, fromP:0.55, toP:0 },
+          { label:'Control Pause', seconds:5, fromP:0, toP:0 },
+        ],
+      },
+
+      // Energize (Intense)
+      {
+        id: 'kapalabhati',
+        category: 'Energize (Intense)',
+        name: 'Kapalabhati (Breath of Fire, 60 bpm)',
+        use: 'Energizing, warming; often used before practice (NOT calming for many).',
+        how: 'Sharp nasal exhales driven by the belly; passive inhales. This preset pulses for ~1 minute.',
+        warn: 'Intense. Do NOT do in water, while driving, or if you\u2019re prone to dizziness/panic. Stop if lightheaded.',
+        sequence: Array.from({length:60}, (_,i) => (
+          i % 2 === 0
+            ? { label:'Pump (Exhale)', seconds:0.5, fromP:0.35, toP:0.0, pulse:true }
+            : { label:'Passive Inhale', seconds:0.5, fromP:0.0, toP:0.35, pulse:true }
+        )),
+      },
+      {
+        id: 'bhastrika',
+        category: 'Energize (Intense)',
+        name: 'Bhastrika (Bellows, 30 bpm)',
+        use: 'Energizing and heat-building; can increase alertness.',
+        how: 'Forceful inhale + forceful exhale. This preset runs ~1 minute at a moderate pace.',
+        warn: 'Intense. Stop if you feel dizzy. Not for bedtime.',
+        sequence: Array.from({length:60}, (_,i) => (
+          i % 2 === 0
+            ? { label:'Force Inhale', seconds:1, fromP:0.0, toP:0.55, pulse:true }
+            : { label:'Force Exhale', seconds:1, fromP:0.55, toP:0.0, pulse:true }
+        )),
+      },
+      {
+        id: 'whm',
+        category: 'Energize (Intense)',
+        name: 'Wim Hof (30 breaths + hold)',
+        use: 'Energizing, arousal control, strong bodily sensations.',
+        how: '30 deep breaths (inhale 1s, exhale 1s) \u2192 exhale hold 30s \u2192 recovery inhale hold 15s.',
+        warn: 'Do NOT do in water, while driving, or standing. Sit/lie down. Stop if tingling/dizziness feels too much.',
+        sequence: [
+          ...Array.from({length:60}, (_,i) => (
+            i % 2 === 0
+              ? { label:'Deep Inhale', seconds:1, fromP:0.0, toP:0.75, pulse:true }
+              : { label:'Release Exhale', seconds:1, fromP:0.75, toP:0.15, pulse:true }
+          )),
+          { label:'Exhale Hold', seconds:30, fromP:0.15, toP:0.15 },
+          { label:'Recovery Inhale', seconds:2, fromP:0.15, toP:1.0 },
+          { label:'Hold (Top)', seconds:15, fromP:1.0, toP:1.0 },
+          { label:'Exhale', seconds:3, fromP:1.0, toP:0.0 },
+        ],
+      },
+      {
+        id: 'holotropic',
+        category: 'Energize (Intense)',
+        name: 'Holotropic (Connected Breathing)',
+        use: 'Traditionally used for intense emotional processing in facilitated settings.',
+        how: 'Continuous connected breaths: inhale 2s \u2192 exhale 2s, repeated.',
+        warn: 'High intensity. Best done with guidance. Do NOT do in water, while driving, or standing.',
+        sequence: makeConnectedBreaths({ breaths: 15, inhaleSec: 2, exhaleSec: 2, peakP: 1, troughP: 0 }),
+      },
+    ];
+
+    // App state
+    let running = false;
+    let cycles = 0;
+    let technique = TECHNIQUES[0];
+
+    // sequence playback
+    let phaseIndex = -1;
+    let phaseStartMs = 0;
+    let pausedPhaseElapsedMs = 0;
+    let rafId = null;
+
+    // Phase colors — all shifted to warm reds/ambers
+    const COLORS = {
+      inhale: { r: 180, g: 60, b: 50 },
+      hold:   { r: 140, g: 50, b: 60 },
+      exhale: { r: 200, g: 100, b: 40 },
+      idle:   { r: 120, g: 40, b: 40 },
+    };
+
+    function clamp01(x){ return Math.max(0, Math.min(1, x)); }
+    function lerp(a,b,t){ return a + (b-a)*t; }
+
+    function setCircleProgress(p){ circle.style.setProperty('--p', clamp01(p).toFixed(5)); }
+
+    function totalSeconds(seq){
+      return Math.round(seq.reduce((sum, p) => sum + (p.seconds || 0), 0));
+    }
+
+    function fmtTime(sec){
+      if (!Number.isFinite(sec)) return '\u2014';
+      const m = Math.floor(sec / 60);
+      const s = sec % 60;
+      return m > 0 ? `${m}m ${s}s` : `${s}s`;
+    }
+
+    function updateTechniqueUI(){
+      infoTitle.textContent = technique.name;
+      infoUse.textContent = `Use: ${technique.use}`;
+      infoHow.textContent = `How: ${technique.how}`;
+
+      if (technique.warn){
+        warningEl.style.display = 'block';
+        warningEl.textContent = `\u26A0\uFE0F ${technique.warn}`;
+      } else {
+        warningEl.style.display = 'none';
+        warningEl.textContent = '';
+      }
+
+      totalsEl.textContent = `Cycle length: ${fmtTime(totalSeconds(technique.sequence))}`;
+    }
+
+    function currentPhase(){
+      if (phaseIndex < 0 || phaseIndex >= technique.sequence.length) return null;
+      return technique.sequence[phaseIndex];
+    }
+
+    function inferPhaseType(phase){
+      if (!phase) return 'idle';
+      const a = phase.fromP ?? 0;
+      const b = phase.toP ?? 0;
+      if (b > a + 1e-6) return 'inhale';
+      if (b < a - 1e-6) return 'exhale';
+      return 'hold';
+    }
+
+    function setPhaseTint(type){
+      const c = COLORS[type] || COLORS.idle;
+      bgTint.style.backgroundColor = `rgba(${c.r}, ${c.g}, ${c.b}, 0.12)`;
+      bgPulse.style.backgroundColor = `rgba(${c.r}, ${c.g}, ${c.b}, 0.18)`;
+    }
+
+    function setStatus(){
+      statusEl.textContent = running ? 'Running' : 'Stopped';
+      startStopBtn.textContent = running ? 'Stop' : 'Start';
+      cyclesEl.textContent = String(cycles);
+      const phase = currentPhase();
+      phaseEl.textContent = phase ? phase.label : '\u2014';
+    }
+
+    function showPhaseLabel(phase){
+      if (!phase){
+        stageLabel.textContent = 'Ready';
+        phaseMini.textContent = running ? 'Starting\u2026' : 'Press Start';
+        resetNumberDisplay('\u2014');
+        setPhaseTint('idle');
+        setToneForPhase('idle', 0);
+        return;
+      }
+      stageLabel.textContent = phase.label;
+      phaseMini.textContent = phase.label;
+      setPhaseTint(inferPhaseType(phase));
+    }
+
+    function startPhase(index, resumeElapsedMs = 0){
+      phaseIndex = index;
+      const phase = currentPhase();
+      phaseStartMs = performance.now() - resumeElapsedMs;
+      pausedPhaseElapsedMs = 0;
+
+      showPhaseLabel(phase);
+      setStatus();
+
+      if (!phase) return;
+
+      const durMs = phase.seconds * 1000;
+      const t = durMs > 0 ? clamp01(resumeElapsedMs / durMs) : 1;
+      const p = phase.fromP + (phase.toP - phase.fromP) * t;
+      setCircleProgress(p);
+
+      // Start audio for this phase
+      if (soundEnabled){
+        setToneForPhase(inferPhaseType(phase), t);
+      }
+    }
+
+    function stepToNextPhase(){
+      const next = phaseIndex + 1;
+      if (next >= technique.sequence.length){
+        cycles += 1;
+        cyclesEl.textContent = String(cycles);
+        startPhase(0, 0);
+      } else {
+        startPhase(next, 0);
+      }
+    }
+
+    function secondPulse(elapsedMs){
+      const frac = (elapsedMs / 1000) % 1;
+      const p = Math.exp(-6 * frac);
+      return clamp01(p);
+    }
+
+    function tick(){
+      if (!running) return;
+
+      const phase = currentPhase();
+      if (!phase){
+        startPhase(0, 0);
+        rafId = requestAnimationFrame(tick);
+        return;
+      }
+
+      const now = performance.now();
+      const elapsed = now - phaseStartMs;
+      const durMs = phase.seconds * 1000;
+      const t = durMs > 0 ? clamp01(elapsed / durMs) : 1;
+      const remaining = Math.max(0, durMs - elapsed);
+
+      // circle size
+      const p = phase.fromP + (phase.toP - phase.fromP) * t;
+      setCircleProgress(p);
+
+      // seconds in circle (slide transition)
+      const secs = Math.max(0, Math.ceil(remaining / 1000));
+      setSecondsInCircle(secs);
+
+      // per-second pulse
+      const pulse = secondPulse(elapsed);
+      document.documentElement.style.setProperty('--phasePulse', String(pulse));
+
+      // Update audio tone
+      if (soundEnabled){
+        const type = inferPhaseType(phase);
+        setToneForPhase(type, t);
+      }
+
+      if (elapsed >= durMs){
+        stepToNextPhase();
+      }
+
+      rafId = requestAnimationFrame(tick);
+    }
+
+    function start(){
+      if (running) return;
+      running = true;
+
+      // Resume audio context (required after user gesture on mobile)
+      if (soundEnabled) resumeAudio();
+
+      // Request wake lock
+      requestWakeLock();
+
+      const hadPhase = currentPhase() !== null;
+      if (!hadPhase) startPhase(-1, 0);
+      else startPhase(phaseIndex, pausedPhaseElapsedMs);
+
+      rafId = requestAnimationFrame(tick);
+      startBackgroundTimer();
+      setStatus();
+    }
+
+    function stop(){
+      if (!running) return;
+      running = false;
+
+      const now = performance.now();
+      pausedPhaseElapsedMs = now - phaseStartMs;
+
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = null;
+
+      stopBackgroundTimer();
+      releaseWakeLock();
+      silenceTone();
+
+      document.documentElement.style.setProperty('--phasePulse', '0');
+      setStatus();
+      phaseMini.textContent = 'Paused';
+    }
+
+    function reset(){
+      running = false;
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = null;
+
+      stopBackgroundTimer();
+      releaseWakeLock();
+      silenceTone();
+
+      cycles = 0;
+      phaseIndex = -1;
+      phaseStartMs = 0;
+      pausedPhaseElapsedMs = 0;
+
+      document.documentElement.style.setProperty('--phasePulse', '0');
+      setCircleProgress(0);
+      showPhaseLabel(null);
+      setStatus();
+    }
+
+    function changeTechniqueById(id){
+      const next = TECHNIQUES.find(t => t.id === id) || TECHNIQUES[0];
+      technique = next;
+      updateTechniqueUI();
+
+      stop();
+      phaseIndex = -1;
+      phaseStartMs = 0;
+      pausedPhaseElapsedMs = 0;
+      setCircleProgress(0);
+      showPhaseLabel(null);
+      setStatus();
+    }
+
+    function groupByCategory(list){
+      const map = new Map();
+      for (const t of list){
+        const cat = t.category || 'Other';
+        if (!map.has(cat)) map.set(cat, []);
+        map.get(cat).push(t);
+      }
+      const order = [
+        'Calm & Sleep',
+        'Focus & Steady',
+        'Cooling & Reset',
+        'Breathing Control (CO\u2082 Tolerance)',
+        'Energize (Intense)',
+        'Other',
+      ];
+      const entries = Array.from(map.entries());
+      entries.sort((a,b) => order.indexOf(a[0]) - order.indexOf(b[0]));
+      for (const [cat, arr] of entries){
+        arr.sort((x,y) => x.name.localeCompare(y.name));
+      }
+      return entries;
+    }
+
+    function initTechniqueDropdown(){
+      techniqueSel.innerHTML = '';
+      const grouped = groupByCategory(TECHNIQUES);
+      for (const [cat, items] of grouped){
+        const og = document.createElement('optgroup');
+        og.label = cat;
+        for (const t of items){
+          const opt = document.createElement('option');
+          opt.value = t.id;
+          opt.textContent = t.name;
+          og.appendChild(opt);
+        }
+        techniqueSel.appendChild(og);
+      }
+      techniqueSel.value = TECHNIQUES[0].id;
+    }
+
+    startStopBtn.addEventListener('click', () => running ? stop() : start());
+    resetBtn.addEventListener('click', reset);
+    techniqueSel.addEventListener('change', (e) => changeTechniqueById(e.target.value));
+
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Space'){
+        e.preventDefault();
+        running ? stop() : start();
+      }
+      if (e.key.toLowerCase() === 'r') reset();
+    });
+
+    initTechniqueDropdown();
+    changeTechniqueById(TECHNIQUES[0].id);
+    reset();
+  </script>
+</body>
+</html>

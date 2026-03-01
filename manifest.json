@@ -1,0 +1,18 @@
+{
+  "name": "Breathwork Trainer",
+  "short_name": "Breathwork",
+  "description": "Guided breathing exercises with visual and audio cues.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#110608",
+  "theme_color": "#110608",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%23110608' width='100' height='100' rx='20'/><circle cx='50' cy='50' r='32' fill='none' stroke='%23c44a4a' stroke-width='4'/><circle cx='50' cy='50' r='18' fill='%23c44a4a' opacity='.35'/></svg>",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
