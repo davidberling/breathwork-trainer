@@ -161,6 +161,68 @@
     option, optgroup{ background:#1a0a0c; color:var(--text); }
     optgroup{ font-weight:800; }
 
+    /* Phase duration controls */
+    .phaseControls{
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+      margin:6px 0 4px;
+      flex-shrink:0;
+      justify-content:center;
+    }
+    .phaseControls:empty{ display:none; }
+    .phaseCtrl{
+      display:flex;
+      align-items:center;
+      gap:4px;
+      background:var(--controlBg);
+      border:1px solid var(--controlBorder);
+      border-radius:10px;
+      padding:4px 6px;
+      min-width:0;
+    }
+    .phaseCtrl .pcLabel{
+      font-size:10px;
+      font-weight:700;
+      color:var(--muted2);
+      letter-spacing:.15px;
+      white-space:nowrap;
+      text-transform:uppercase;
+      min-width:0;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      max-width:60px;
+    }
+    .phaseCtrl .pcBtn{
+      appearance:none;
+      background:rgba(180,60,60,.15);
+      border:1px solid rgba(180,60,60,.25);
+      border-radius:7px;
+      color:var(--text);
+      width:26px;
+      height:26px;
+      min-width:26px;
+      min-height:26px;
+      padding:0;
+      display:grid;
+      place-items:center;
+      cursor:pointer;
+      font-size:16px;
+      font-weight:700;
+      line-height:1;
+      transition: background .15s ease;
+      -webkit-tap-highlight-color:transparent;
+    }
+    .phaseCtrl .pcBtn:hover{ background:rgba(180,60,60,.28); }
+    .phaseCtrl .pcBtn:active{ background:rgba(180,60,60,.38); }
+    .phaseCtrl .pcVal{
+      font-size:13px;
+      font-weight:800;
+      color:var(--text);
+      min-width:22px;
+      text-align:center;
+    }
+
     .stage{
       text-align:center;
       margin:6px 0 4px;
@@ -441,6 +503,8 @@
       </div>
     </div>
 
+    <div class="phaseControls" id="phaseControls"></div>
+
     <div class="stage" id="stageLabel">Ready</div>
 
     <section class="visual" aria-hidden="true">
@@ -531,11 +595,10 @@
     let soundEnabled = false;
     let lastChimePhaseType = null;
 
-    // Each phase gets a distinct chime pitch (Hz) — pentatonic, warm
     const CHIME_NOTES = {
-      inhale: [396, 528],     // G4 + C5 (two gentle tones, rising feel)
-      hold:   [352],          // F4 (single, steady)
-      exhale: [528, 396],     // C5 + G4 (two tones, descending feel)
+      inhale: [396, 528],
+      hold:   [352],
+      exhale: [528, 396],
       idle:   [],
     };
 
@@ -550,149 +613,101 @@
       }
     }
 
-    // Synthesize a single wood chime hit
     function playChimeNote(freq, delay, volume){
       if (!audioCtx) return;
       const t = audioCtx.currentTime + delay;
-
-      // 1) Sine body — the tonal "ring"
       const osc = audioCtx.createOscillator();
       osc.type = 'sine';
       osc.frequency.value = freq;
-
-      // Gentle detune for warmth
       const osc2 = audioCtx.createOscillator();
       osc2.type = 'sine';
-      osc2.frequency.value = freq * 2.01; // slightly sharp octave = woody shimmer
-
+      osc2.frequency.value = freq * 2.01;
       const oscGain = audioCtx.createGain();
       oscGain.gain.setValueAtTime(0, t);
-      oscGain.gain.linearRampToValueAtTime(volume * 0.22, t + 0.004); // fast attack
-      oscGain.gain.exponentialRampToValueAtTime(0.001, t + 1.4);      // long decay
-
+      oscGain.gain.linearRampToValueAtTime(volume * 0.22, t + 0.004);
+      oscGain.gain.exponentialRampToValueAtTime(0.001, t + 1.4);
       const osc2Gain = audioCtx.createGain();
       osc2Gain.gain.setValueAtTime(0, t);
       osc2Gain.gain.linearRampToValueAtTime(volume * 0.07, t + 0.003);
-      osc2Gain.gain.exponentialRampToValueAtTime(0.001, t + 0.6); // octave fades faster
-
-      // 2) Filtered noise burst — the "wood" attack
-      const bufLen = audioCtx.sampleRate * 0.06; // 60ms noise
+      osc2Gain.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
+      const bufLen = audioCtx.sampleRate * 0.06;
       const noiseBuf = audioCtx.createBuffer(1, bufLen, audioCtx.sampleRate);
       const data = noiseBuf.getChannelData(0);
       for (let i = 0; i < bufLen; i++) data[i] = (Math.random() * 2 - 1);
-
       const noise = audioCtx.createBufferSource();
       noise.buffer = noiseBuf;
-
       const noiseFilter = audioCtx.createBiquadFilter();
       noiseFilter.type = 'bandpass';
       noiseFilter.frequency.value = freq * 1.5;
       noiseFilter.Q.value = 2.5;
-
       const noiseGain = audioCtx.createGain();
       noiseGain.gain.setValueAtTime(0, t);
       noiseGain.gain.linearRampToValueAtTime(volume * 0.12, t + 0.002);
       noiseGain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
-
-      // 3) Master output with soft compressor feel
       const master = audioCtx.createGain();
       master.gain.value = 1.0;
-
       osc.connect(oscGain).connect(master);
       osc2.connect(osc2Gain).connect(master);
       noise.connect(noiseFilter).connect(noiseGain).connect(master);
       master.connect(audioCtx.destination);
-
-      osc.start(t);
-      osc.stop(t + 1.5);
-      osc2.start(t);
-      osc2.stop(t + 0.7);
-      noise.start(t);
-      noise.stop(t + 0.07);
+      osc.start(t); osc.stop(t + 1.5);
+      osc2.start(t); osc2.stop(t + 0.7);
+      noise.start(t); noise.stop(t + 0.07);
     }
 
-    // Play the chime pattern for a given phase type
     function playChime(phaseType){
       if (!audioCtx || !soundEnabled) return;
       const notes = CHIME_NOTES[phaseType];
       if (!notes || notes.length === 0) return;
-
-      notes.forEach((freq, i) => {
-        // Stagger notes slightly for a natural feel
-        playChimeNote(freq, i * 0.12, 1.0);
-      });
+      notes.forEach((freq, i) => { playChimeNote(freq, i * 0.12, 1.0); });
     }
 
-    // Called on phase transitions — only chimes when the phase type changes
     function setToneForPhase(phaseType, progress){
       if (!audioCtx || !soundEnabled) return;
-      if (phaseType === 'idle'){
-        lastChimePhaseType = 'idle';
-        return;
-      }
+      if (phaseType === 'idle'){ lastChimePhaseType = 'idle'; return; }
       if (lastChimePhaseType !== phaseType){
         lastChimePhaseType = phaseType;
         playChime(phaseType);
       }
     }
 
-    function silenceTone(){
-      lastChimePhaseType = null;
-      // Chimes are fire-and-forget, nothing to silence
-    }
+    function silenceTone(){ lastChimePhaseType = null; }
 
-    // Clock-like tick at each second
     function playTick(){
       if (!audioCtx || !soundEnabled) return;
       const t = audioCtx.currentTime;
-
-      // Short sine "click" — like a wooden clock mechanism
       const osc = audioCtx.createOscillator();
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(1800, t);           // high initial click
-      osc.frequency.exponentialRampToValueAtTime(600, t + 0.015); // drop fast
-
+      osc.frequency.setValueAtTime(1800, t);
+      osc.frequency.exponentialRampToValueAtTime(600, t + 0.015);
       const oscGain = audioCtx.createGain();
-      oscGain.gain.setValueAtTime(0.04, t);             // soft
-      oscGain.gain.exponentialRampToValueAtTime(0.001, t + 0.045); // very short decay
-
-      // Tiny filtered noise for the "mechanical" texture
-      const bufLen = Math.floor(audioCtx.sampleRate * 0.012); // 12ms
+      oscGain.gain.setValueAtTime(0.04, t);
+      oscGain.gain.exponentialRampToValueAtTime(0.001, t + 0.045);
+      const bufLen = Math.floor(audioCtx.sampleRate * 0.012);
       const noiseBuf = audioCtx.createBuffer(1, bufLen, audioCtx.sampleRate);
       const nd = noiseBuf.getChannelData(0);
       for (let i = 0; i < bufLen; i++) nd[i] = (Math.random() * 2 - 1);
-
       const noise = audioCtx.createBufferSource();
       noise.buffer = noiseBuf;
-
       const nf = audioCtx.createBiquadFilter();
-      nf.type = 'highpass';
-      nf.frequency.value = 3000;
-
+      nf.type = 'highpass'; nf.frequency.value = 3000;
       const ng = audioCtx.createGain();
       ng.gain.setValueAtTime(0.025, t);
       ng.gain.exponentialRampToValueAtTime(0.001, t + 0.018);
-
       osc.connect(oscGain).connect(audioCtx.destination);
       noise.connect(nf).connect(ng).connect(audioCtx.destination);
-
-      osc.start(t);
-      osc.stop(t + 0.07);
-      noise.start(t);
-      noise.stop(t + 0.015);
+      osc.start(t); osc.stop(t + 0.07);
+      noise.start(t); noise.stop(t + 0.015);
     }
 
     // Sound toggle
     const soundBtn = document.getElementById('soundBtn');
     const soundIconOff = document.getElementById('soundIconOff');
     const soundIconOn = document.getElementById('soundIconOn');
-
     soundBtn.addEventListener('click', () => {
       soundEnabled = !soundEnabled;
-
       if (soundEnabled){
-        initAudio();
-        resumeAudio();
+        initAudio(); resumeAudio();
         soundBtn.classList.add('active');
         soundIconOff.style.display = 'none';
         soundIconOn.style.display = 'block';
@@ -705,38 +720,26 @@
     });
 
     // =====================
-    // BACKGROUND TIMER — keeps running when rAF is throttled
+    // BACKGROUND TIMER
     // =====================
     let bgTimerId = null;
-
     function startBackgroundTimer(){
       if (bgTimerId) return;
       bgTimerId = setInterval(() => {
         if (!running) return;
-        // This ensures phase transitions happen even if rAF is paused
         const phase = currentPhase();
         if (!phase) return;
         const elapsed = performance.now() - phaseStartMs;
         const durMs = phase.seconds * 1000;
-        if (elapsed >= durMs){
-          stepToNextPhase();
-        }
-        // Trigger chime on phase transition in background
+        if (elapsed >= durMs){ stepToNextPhase(); }
         if (soundEnabled && audioCtx){
           const ph = currentPhase();
-          if (ph){
-            const type = inferPhaseType(ph);
-            setToneForPhase(type, 0);
-          }
+          if (ph){ setToneForPhase(inferPhaseType(ph), 0); }
         }
-      }, 100); // 10 Hz — good enough for phase transitions
+      }, 100);
     }
-
     function stopBackgroundTimer(){
-      if (bgTimerId){
-        clearInterval(bgTimerId);
-        bgTimerId = null;
-      }
+      if (bgTimerId){ clearInterval(bgTimerId); bgTimerId = null; }
     }
 
     // =====================
@@ -762,14 +765,11 @@
     const statusEl = document.getElementById('status');
     const techniqueSel = document.getElementById('technique');
     const totalsEl = document.getElementById('totals');
-
     const numCurrent = document.getElementById('numCurrent');
     const numNext = document.getElementById('numNext');
     const phaseMini = document.getElementById('phaseMini');
-
     const bgTint = document.getElementById('bgTint');
     const bgPulse = document.getElementById('bgPulse');
-
     const infoTitle = document.getElementById('infoTitle');
     const infoUse = document.getElementById('infoUse');
     const infoHow = document.getElementById('infoHow');
@@ -782,49 +782,36 @@
     function slideToNumber(newNum){
       const newStr = String(newNum);
       if (newStr === displayedNumber) return;
-
-      // Play tick on each number change
       if (running) playTick();
-
       if (slideAnimating) {
         numCurrent.classList.remove('exit');
         numNext.classList.remove('enter');
         numCurrent.textContent = numNext.textContent;
       }
-
       displayedNumber = newStr;
-
       numNext.textContent = newStr;
       numNext.style.transform = 'translateY(100%)';
       numNext.style.opacity = '0';
       numNext.classList.remove('enter');
       numCurrent.classList.remove('exit');
-
       void numNext.offsetHeight;
-
       slideAnimating = true;
-
       numCurrent.classList.add('exit');
       numNext.classList.add('enter');
-
       setTimeout(() => {
         numCurrent.textContent = newStr;
         numCurrent.classList.remove('exit');
         numCurrent.style.transform = '';
         numCurrent.style.opacity = '';
-
         numNext.classList.remove('enter');
         numNext.style.transform = 'translateY(100%)';
         numNext.style.opacity = '0';
         numNext.textContent = '';
-
         slideAnimating = false;
       }, 330);
     }
 
-    function setSecondsInCircle(secs){
-      slideToNumber(secs);
-    }
+    function setSecondsInCircle(secs){ slideToNumber(secs); }
 
     function resetNumberDisplay(text){
       displayedNumber = null;
@@ -839,7 +826,6 @@
       numNext.style.opacity = '0';
     }
 
-
     function makeConnectedBreaths({ breaths, inhaleSec, exhaleSec, peakP=1, troughP=0 }){
       const phases = [];
       for (let i = 0; i < breaths; i++){
@@ -850,196 +836,20 @@
     }
 
     const TECHNIQUES = [
-      // Calm & Sleep
-      {
-        id: '478',
-        category: 'Calm & Sleep',
-        name: '4-7-8 (Relaxing Breath)',
-        use: 'Calming the nervous system, easing anxiety, helping sleep onset.',
-        how: 'Inhale 4s \u2192 Hold 7s \u2192 Exhale 8s. Repeat for a few cycles.',
-        warn: '',
-        sequence: [
-          { label:'Inhale', seconds:4, fromP:0, toP:1 },
-          { label:'Hold', seconds:7, fromP:1, toP:1 },
-          { label:'Exhale', seconds:8, fromP:1, toP:0 },
-        ],
-      },
-      {
-        id: 'sigh',
-        category: 'Calm & Sleep',
-        name: 'Cyclic Sighing (Double Inhale + Long Exhale)',
-        use: 'Rapid downshift (calm) and mood lift; good when stressed.',
-        how: 'Deep inhale ~2s \u2192 top-up inhale ~1s \u2192 long exhale ~6s.',
-        warn: 'If you feel lightheaded, shorten the session or switch to slower breathing.',
-        sequence: [
-          { label:'Inhale', seconds:2, fromP:0, toP:0.75 },
-          { label:'Top-up', seconds:1, fromP:0.75, toP:1 },
-          { label:'Exhale', seconds:6, fromP:1, toP:0 },
-        ],
-      },
-      {
-        id: 'dia',
-        category: 'Calm & Sleep',
-        name: 'Diaphragmatic (4-6)',
-        use: 'Basic relaxation, lowering arousal; good default daily practice.',
-        how: 'Belly-breathe: Inhale 4s \u2192 Exhale 6s (slow, smooth).',
-        warn: '',
-        sequence: [
-          { label:'Inhale', seconds:4, fromP:0, toP:1 },
-          { label:'Exhale', seconds:6, fromP:1, toP:0 },
-        ],
-      },
-      {
-        id: 'bhramari',
-        category: 'Calm & Sleep',
-        name: 'Bhramari (Humming Exhale)',
-        use: 'Quick relaxation; the humming can feel soothing and grounding.',
-        how: 'Inhale 4s \u2192 Hum on exhale 6s (steady "mmm").',
-        warn: '',
-        sequence: [
-          { label:'Inhale', seconds:4, fromP:0, toP:1 },
-          { label:'Hum Exhale', seconds:6, fromP:1, toP:0 },
-        ],
-      },
-
-      // Focus & Steady
-      {
-        id: 'box4',
-        category: 'Focus & Steady',
-        name: 'Box Breathing (4-4-4-4)',
-        use: 'Stress control, focus, steadying emotions ("tactical" breathing).',
-        how: 'Inhale 4s \u2192 Hold 4s \u2192 Exhale 4s \u2192 Hold 4s.',
-        warn: '',
-        sequence: [
-          { label:'Inhale', seconds:4, fromP:0, toP:1 },
-          { label:'Hold', seconds:4, fromP:1, toP:1 },
-          { label:'Exhale', seconds:4, fromP:1, toP:0 },
-          { label:'Hold', seconds:4, fromP:0, toP:0 },
-        ],
-      },
-      {
-        id: 'resonance',
-        category: 'Focus & Steady',
-        name: 'Resonance / Coherent Breathing (5-5)',
-        use: 'Increasing HRV, calming, emotional regulation, gentle focus.',
-        how: 'Breathe ~6 breaths/min: Inhale 5s \u2192 Exhale 5s. No holds.',
-        warn: '',
-        sequence: [
-          { label:'Inhale', seconds:5, fromP:0, toP:1 },
-          { label:'Exhale', seconds:5, fromP:1, toP:0 },
-        ],
-      },
-      {
-        id: 'alt',
-        category: 'Focus & Steady',
-        name: 'Alternate Nostril (Simplified 4-4)',
-        use: 'Balancing attention and calm; many find it centering.',
-        how: 'Left inhale 4s \u2192 Right exhale 4s \u2192 Right inhale 4s \u2192 Left exhale 4s.',
-        warn: 'This timer can\u2019t detect nostrils\u2014use the labels as prompts.',
-        sequence: [
-          { label:'Left Inhale', seconds:4, fromP:0, toP:1 },
-          { label:'Right Exhale', seconds:4, fromP:1, toP:0 },
-          { label:'Right Inhale', seconds:4, fromP:0, toP:1 },
-          { label:'Left Exhale', seconds:4, fromP:1, toP:0 },
-        ],
-      },
-      {
-        id: 'ujjayi',
-        category: 'Focus & Steady',
-        name: 'Ujjayi (Ocean Breath, 4-6)',
-        use: 'Steady focus and calm; great during movement or stretching.',
-        how: 'Inhale 4s \u2192 Exhale 6s through the nose with a soft "ocean" throat constriction.',
-        warn: '',
-        sequence: [
-          { label:'Inhale', seconds:4, fromP:0, toP:1 },
-          { label:'Exhale', seconds:6, fromP:1, toP:0 },
-        ],
-      },
-
-      // Cooling & Reset
-      {
-        id: 'sheetali',
-        category: 'Cooling & Reset',
-        name: 'Sheetali/Sheetkari (Cooling Breath, 4-6)',
-        use: 'Cooling down, reducing agitation; useful after heat/exertion.',
-        how: 'Inhale 4s (through rolled tongue or teeth) \u2192 Exhale 6s through the nose.',
-        warn: 'Skip if you feel cold or have respiratory irritation.',
-        sequence: [
-          { label:'Cooling Inhale', seconds:4, fromP:0, toP:1 },
-          { label:'Nasal Exhale', seconds:6, fromP:1, toP:0 },
-        ],
-      },
-
-      // Breathing Control
-      {
-        id: 'buteyko',
-        category: 'Breathing Control (CO\u2082 Tolerance)',
-        name: 'Buteyko (Reduced Breathing + Control Pause)',
-        use: 'Training tolerance to CO\u2082, reducing over-breathing; often used for asthma/hyperventilation patterns.',
-        how: 'Gentle nasal inhale 2s \u2192 gentle nasal exhale 3s \u2192 hold after exhale 5s. Keep it light.',
-        warn: 'Keep breaths SMALL. If it feels stressful, shorten the hold.',
-        sequence: [
-          { label:'Light Inhale', seconds:2, fromP:0, toP:0.55 },
-          { label:'Light Exhale', seconds:3, fromP:0.55, toP:0 },
-          { label:'Control Pause', seconds:5, fromP:0, toP:0 },
-        ],
-      },
-
-      // Energize (Intense)
-      {
-        id: 'kapalabhati',
-        category: 'Energize (Intense)',
-        name: 'Kapalabhati (Breath of Fire, 60 bpm)',
-        use: 'Energizing, warming; often used before practice (NOT calming for many).',
-        how: 'Sharp nasal exhales driven by the belly; passive inhales. This preset pulses for ~1 minute.',
-        warn: 'Intense. Do NOT do in water, while driving, or if you\u2019re prone to dizziness/panic. Stop if lightheaded.',
-        sequence: Array.from({length:60}, (_,i) => (
-          i % 2 === 0
-            ? { label:'Pump (Exhale)', seconds:0.5, fromP:0.35, toP:0.0, pulse:true }
-            : { label:'Passive Inhale', seconds:0.5, fromP:0.0, toP:0.35, pulse:true }
-        )),
-      },
-      {
-        id: 'bhastrika',
-        category: 'Energize (Intense)',
-        name: 'Bhastrika (Bellows, 30 bpm)',
-        use: 'Energizing and heat-building; can increase alertness.',
-        how: 'Forceful inhale + forceful exhale. This preset runs ~1 minute at a moderate pace.',
-        warn: 'Intense. Stop if you feel dizzy. Not for bedtime.',
-        sequence: Array.from({length:60}, (_,i) => (
-          i % 2 === 0
-            ? { label:'Force Inhale', seconds:1, fromP:0.0, toP:0.55, pulse:true }
-            : { label:'Force Exhale', seconds:1, fromP:0.55, toP:0.0, pulse:true }
-        )),
-      },
-      {
-        id: 'whm',
-        category: 'Energize (Intense)',
-        name: 'Wim Hof (30 breaths + hold)',
-        use: 'Energizing, arousal control, strong bodily sensations.',
-        how: '30 deep breaths (inhale 1s, exhale 1s) \u2192 exhale hold 30s \u2192 recovery inhale hold 15s.',
-        warn: 'Do NOT do in water, while driving, or standing. Sit/lie down. Stop if tingling/dizziness feels too much.',
-        sequence: [
-          ...Array.from({length:60}, (_,i) => (
-            i % 2 === 0
-              ? { label:'Deep Inhale', seconds:1, fromP:0.0, toP:0.75, pulse:true }
-              : { label:'Release Exhale', seconds:1, fromP:0.75, toP:0.15, pulse:true }
-          )),
-          { label:'Exhale Hold', seconds:30, fromP:0.15, toP:0.15 },
-          { label:'Recovery Inhale', seconds:2, fromP:0.15, toP:1.0 },
-          { label:'Hold (Top)', seconds:15, fromP:1.0, toP:1.0 },
-          { label:'Exhale', seconds:3, fromP:1.0, toP:0.0 },
-        ],
-      },
-      {
-        id: 'holotropic',
-        category: 'Energize (Intense)',
-        name: 'Holotropic (Connected Breathing)',
-        use: 'Traditionally used for intense emotional processing in facilitated settings.',
-        how: 'Continuous connected breaths: inhale 2s \u2192 exhale 2s, repeated.',
-        warn: 'High intensity. Best done with guidance. Do NOT do in water, while driving, or standing.',
-        sequence: makeConnectedBreaths({ breaths: 15, inhaleSec: 2, exhaleSec: 2, peakP: 1, troughP: 0 }),
-      },
+      { id:'478', category:'Calm & Sleep', name:'4-7-8 (Relaxing Breath)', use:'Calming the nervous system, easing anxiety, helping sleep onset.', how:'Inhale 4s \u2192 Hold 7s \u2192 Exhale 8s. Repeat for a few cycles.', warn:'', sequence:[{label:'Inhale',seconds:4,fromP:0,toP:1},{label:'Hold',seconds:7,fromP:1,toP:1},{label:'Exhale',seconds:8,fromP:1,toP:0}] },
+      { id:'sigh', category:'Calm & Sleep', name:'Cyclic Sighing (Double Inhale + Long Exhale)', use:'Rapid downshift (calm) and mood lift; good when stressed.', how:'Deep inhale ~2s \u2192 top-up inhale ~1s \u2192 long exhale ~6s.', warn:'If you feel lightheaded, shorten the session or switch to slower breathing.', sequence:[{label:'Inhale',seconds:2,fromP:0,toP:0.75},{label:'Top-up',seconds:1,fromP:0.75,toP:1},{label:'Exhale',seconds:6,fromP:1,toP:0}] },
+      { id:'dia', category:'Calm & Sleep', name:'Diaphragmatic (4-6)', use:'Basic relaxation, lowering arousal; good default daily practice.', how:'Belly-breathe: Inhale 4s \u2192 Exhale 6s (slow, smooth).', warn:'', sequence:[{label:'Inhale',seconds:4,fromP:0,toP:1},{label:'Exhale',seconds:6,fromP:1,toP:0}] },
+      { id:'bhramari', category:'Calm & Sleep', name:'Bhramari (Humming Exhale)', use:'Quick relaxation; the humming can feel soothing and grounding.', how:'Inhale 4s \u2192 Hum on exhale 6s (steady "mmm").', warn:'', sequence:[{label:'Inhale',seconds:4,fromP:0,toP:1},{label:'Hum Exhale',seconds:6,fromP:1,toP:0}] },
+      { id:'box4', category:'Focus & Steady', name:'Box Breathing (4-4-4-4)', use:'Stress control, focus, steadying emotions ("tactical" breathing).', how:'Inhale 4s \u2192 Hold 4s \u2192 Exhale 4s \u2192 Hold 4s.', warn:'', sequence:[{label:'Inhale',seconds:4,fromP:0,toP:1},{label:'Hold',seconds:4,fromP:1,toP:1},{label:'Exhale',seconds:4,fromP:1,toP:0},{label:'Hold',seconds:4,fromP:0,toP:0}] },
+      { id:'resonance', category:'Focus & Steady', name:'Resonance / Coherent Breathing (5-5)', use:'Increasing HRV, calming, emotional regulation, gentle focus.', how:'Breathe ~6 breaths/min: Inhale 5s \u2192 Exhale 5s. No holds.', warn:'', sequence:[{label:'Inhale',seconds:5,fromP:0,toP:1},{label:'Exhale',seconds:5,fromP:1,toP:0}] },
+      { id:'alt', category:'Focus & Steady', name:'Alternate Nostril (Simplified 4-4)', use:'Balancing attention and calm; many find it centering.', how:'Left inhale 4s \u2192 Right exhale 4s \u2192 Right inhale 4s \u2192 Left exhale 4s.', warn:'This timer can\u2019t detect nostrils\u2014use the labels as prompts.', sequence:[{label:'Left Inhale',seconds:4,fromP:0,toP:1},{label:'Right Exhale',seconds:4,fromP:1,toP:0},{label:'Right Inhale',seconds:4,fromP:0,toP:1},{label:'Left Exhale',seconds:4,fromP:1,toP:0}] },
+      { id:'ujjayi', category:'Focus & Steady', name:'Ujjayi (Ocean Breath, 4-6)', use:'Steady focus and calm; great during movement or stretching.', how:'Inhale 4s \u2192 Exhale 6s through the nose with a soft "ocean" throat constriction.', warn:'', sequence:[{label:'Inhale',seconds:4,fromP:0,toP:1},{label:'Exhale',seconds:6,fromP:1,toP:0}] },
+      { id:'sheetali', category:'Cooling & Reset', name:'Sheetali/Sheetkari (Cooling Breath, 4-6)', use:'Cooling down, reducing agitation; useful after heat/exertion.', how:'Inhale 4s (through rolled tongue or teeth) \u2192 Exhale 6s through the nose.', warn:'Skip if you feel cold or have respiratory irritation.', sequence:[{label:'Cooling Inhale',seconds:4,fromP:0,toP:1},{label:'Nasal Exhale',seconds:6,fromP:1,toP:0}] },
+      { id:'buteyko', category:'Breathing Control (CO\u2082 Tolerance)', name:'Buteyko (Reduced Breathing + Control Pause)', use:'Training tolerance to CO\u2082, reducing over-breathing; often used for asthma/hyperventilation patterns.', how:'Gentle nasal inhale 2s \u2192 gentle nasal exhale 3s \u2192 hold after exhale 5s. Keep it light.', warn:'Keep breaths SMALL. If it feels stressful, shorten the hold.', sequence:[{label:'Light Inhale',seconds:2,fromP:0,toP:0.55},{label:'Light Exhale',seconds:3,fromP:0.55,toP:0},{label:'Control Pause',seconds:5,fromP:0,toP:0}] },
+      { id:'kapalabhati', category:'Energize (Intense)', name:'Kapalabhati (Breath of Fire, 60 bpm)', use:'Energizing, warming; often used before practice (NOT calming for many).', how:'Sharp nasal exhales driven by the belly; passive inhales. This preset pulses for ~1 minute.', warn:'Intense. Do NOT do in water, while driving, or if you\u2019re prone to dizziness/panic. Stop if lightheaded.', sequence: Array.from({length:60}, (_,i) => (i%2===0?{label:'Pump (Exhale)',seconds:0.5,fromP:0.35,toP:0.0,pulse:true}:{label:'Passive Inhale',seconds:0.5,fromP:0.0,toP:0.35,pulse:true})) },
+      { id:'bhastrika', category:'Energize (Intense)', name:'Bhastrika (Bellows, 30 bpm)', use:'Energizing and heat-building; can increase alertness.', how:'Forceful inhale + forceful exhale. This preset runs ~1 minute at a moderate pace.', warn:'Intense. Stop if you feel dizzy. Not for bedtime.', sequence: Array.from({length:60}, (_,i) => (i%2===0?{label:'Force Inhale',seconds:1,fromP:0.0,toP:0.55,pulse:true}:{label:'Force Exhale',seconds:1,fromP:0.55,toP:0.0,pulse:true})) },
+      { id:'whm', category:'Energize (Intense)', name:'Wim Hof (30 breaths + hold)', use:'Energizing, arousal control, strong bodily sensations.', how:'30 deep breaths (inhale 1s, exhale 1s) \u2192 exhale hold 30s \u2192 recovery inhale hold 15s.', warn:'Do NOT do in water, while driving, or standing. Sit/lie down. Stop if tingling/dizziness feels too much.', sequence:[...Array.from({length:60},(_,i)=>(i%2===0?{label:'Deep Inhale',seconds:1,fromP:0.0,toP:0.75,pulse:true}:{label:'Release Exhale',seconds:1,fromP:0.75,toP:0.15,pulse:true})),{label:'Exhale Hold',seconds:30,fromP:0.15,toP:0.15},{label:'Recovery Inhale',seconds:2,fromP:0.15,toP:1.0},{label:'Hold (Top)',seconds:15,fromP:1.0,toP:1.0},{label:'Exhale',seconds:3,fromP:1.0,toP:0.0}] },
+      { id:'holotropic', category:'Energize (Intense)', name:'Holotropic (Connected Breathing)', use:'Traditionally used for intense emotional processing in facilitated settings.', how:'Continuous connected breaths: inhale 2s \u2192 exhale 2s, repeated.', warn:'High intensity. Best done with guidance. Do NOT do in water, while driving, or standing.', sequence: makeConnectedBreaths({ breaths:15, inhaleSec:2, exhaleSec:2, peakP:1, troughP:0 }) },
     ];
 
     // App state
@@ -1047,13 +857,96 @@
     let cycles = 0;
     let technique = TECHNIQUES[0];
 
+    // Working sequence — a mutable copy with user-adjusted durations
+    let workingSequence = [];
+
+    // Phase controls container
+    const phaseControlsEl = document.getElementById('phaseControls');
+
+    // Techniques with many micro-phases (rapid fire) — controls don't apply
+    const RAPID_FIRE_IDS = ['kapalabhati', 'bhastrika', 'whm', 'holotropic'];
+
+    function getEditablePhases(tech){
+      if (RAPID_FIRE_IDS.includes(tech.id)) return [];
+      const map = new Map();
+      const order = [];
+      for (let i = 0; i < tech.sequence.length; i++){
+        const ph = tech.sequence[i];
+        const key = ph.label;
+        if (!map.has(key)){
+          map.set(key, { label: ph.label, defaultSeconds: ph.seconds, indices: [] });
+          order.push(key);
+        }
+        map.get(key).indices.push(i);
+      }
+      return order.map(k => map.get(k));
+    }
+
+    function buildWorkingSequence(tech){
+      return tech.sequence.map(ph => ({...ph}));
+    }
+
+    function applyDurationChange(label, newSeconds){
+      for (const ph of workingSequence){
+        if (ph.label === label) ph.seconds = newSeconds;
+      }
+    }
+
+    function renderPhaseControls(){
+      phaseControlsEl.innerHTML = '';
+      const editable = getEditablePhases(technique);
+      if (editable.length === 0) return;
+      for (const ep of editable){
+        const currentSec = workingSequence[ep.indices[0]].seconds;
+        const wrap = document.createElement('div');
+        wrap.className = 'phaseCtrl';
+        const lbl = document.createElement('span');
+        lbl.className = 'pcLabel';
+        lbl.textContent = ep.label;
+        const minus = document.createElement('button');
+        minus.className = 'pcBtn';
+        minus.textContent = '\u2212';
+        minus.type = 'button';
+        minus.setAttribute('aria-label', `Decrease ${ep.label} duration`);
+        const val = document.createElement('span');
+        val.className = 'pcVal';
+        val.textContent = `${currentSec}s`;
+        const plus = document.createElement('button');
+        plus.className = 'pcBtn';
+        plus.textContent = '+';
+        plus.type = 'button';
+        plus.setAttribute('aria-label', `Increase ${ep.label} duration`);
+        minus.addEventListener('click', () => {
+          const cur = workingSequence[ep.indices[0]].seconds;
+          const next = Math.max(1, cur - 1);
+          applyDurationChange(ep.label, next);
+          val.textContent = `${next}s`;
+          updateCycleLengthDisplay();
+          if (!running){ phaseIndex = -1; phaseStartMs = 0; pausedPhaseElapsedMs = 0; }
+        });
+        plus.addEventListener('click', () => {
+          const cur = workingSequence[ep.indices[0]].seconds;
+          const next = Math.min(120, cur + 1);
+          applyDurationChange(ep.label, next);
+          val.textContent = `${next}s`;
+          updateCycleLengthDisplay();
+          if (!running){ phaseIndex = -1; phaseStartMs = 0; pausedPhaseElapsedMs = 0; }
+        });
+        wrap.append(lbl, minus, val, plus);
+        phaseControlsEl.appendChild(wrap);
+      }
+    }
+
+    function updateCycleLengthDisplay(){
+      totalsEl.textContent = `Cycle length: ${fmtTime(totalSeconds(workingSequence))}`;
+    }
+
     // sequence playback
     let phaseIndex = -1;
     let phaseStartMs = 0;
     let pausedPhaseElapsedMs = 0;
     let rafId = null;
 
-    // Phase colors — all shifted to warm reds/ambers
     const COLORS = {
       inhale: { r: 180, g: 60, b: 50 },
       hold:   { r: 140, g: 50, b: 60 },
@@ -1063,7 +956,6 @@
 
     function clamp01(x){ return Math.max(0, Math.min(1, x)); }
     function lerp(a,b,t){ return a + (b-a)*t; }
-
     function setCircleProgress(p){ circle.style.setProperty('--p', clamp01(p).toFixed(5)); }
 
     function totalSeconds(seq){
@@ -1081,7 +973,6 @@
       infoTitle.textContent = technique.name;
       infoUse.textContent = `Use: ${technique.use}`;
       infoHow.textContent = `How: ${technique.how}`;
-
       if (technique.warn){
         warningEl.style.display = 'block';
         warningEl.textContent = `\u26A0\uFE0F ${technique.warn}`;
@@ -1089,13 +980,12 @@
         warningEl.style.display = 'none';
         warningEl.textContent = '';
       }
-
-      totalsEl.textContent = `Cycle length: ${fmtTime(totalSeconds(technique.sequence))}`;
+      totalsEl.textContent = `Cycle length: ${fmtTime(totalSeconds(workingSequence))}`;
     }
 
     function currentPhase(){
-      if (phaseIndex < 0 || phaseIndex >= technique.sequence.length) return null;
-      return technique.sequence[phaseIndex];
+      if (phaseIndex < 0 || phaseIndex >= workingSequence.length) return null;
+      return workingSequence[phaseIndex];
     }
 
     function inferPhaseType(phase){
@@ -1140,26 +1030,19 @@
       const phase = currentPhase();
       phaseStartMs = performance.now() - resumeElapsedMs;
       pausedPhaseElapsedMs = 0;
-
       showPhaseLabel(phase);
       setStatus();
-
       if (!phase) return;
-
       const durMs = phase.seconds * 1000;
       const t = durMs > 0 ? clamp01(resumeElapsedMs / durMs) : 1;
       const p = phase.fromP + (phase.toP - phase.fromP) * t;
       setCircleProgress(p);
-
-      // Start audio for this phase
-      if (soundEnabled){
-        setToneForPhase(inferPhaseType(phase), t);
-      }
+      if (soundEnabled){ setToneForPhase(inferPhaseType(phase), t); }
     }
 
     function stepToNextPhase(){
       const next = phaseIndex + 1;
-      if (next >= technique.sequence.length){
+      if (next >= workingSequence.length){
         cycles += 1;
         cyclesEl.textContent = String(cycles);
         startPhase(0, 0);
@@ -1170,65 +1053,37 @@
 
     function secondPulse(elapsedMs){
       const frac = (elapsedMs / 1000) % 1;
-      const p = Math.exp(-6 * frac);
-      return clamp01(p);
+      return clamp01(Math.exp(-6 * frac));
     }
 
     function tick(){
       if (!running) return;
-
       const phase = currentPhase();
-      if (!phase){
-        startPhase(0, 0);
-        rafId = requestAnimationFrame(tick);
-        return;
-      }
-
+      if (!phase){ startPhase(0, 0); rafId = requestAnimationFrame(tick); return; }
       const now = performance.now();
       const elapsed = now - phaseStartMs;
       const durMs = phase.seconds * 1000;
       const t = durMs > 0 ? clamp01(elapsed / durMs) : 1;
       const remaining = Math.max(0, durMs - elapsed);
-
-      // circle size
       const p = phase.fromP + (phase.toP - phase.fromP) * t;
       setCircleProgress(p);
-
-      // seconds in circle (slide transition)
       const secs = Math.max(0, Math.ceil(remaining / 1000));
       setSecondsInCircle(secs);
-
-      // per-second pulse
       const pulse = secondPulse(elapsed);
       document.documentElement.style.setProperty('--phasePulse', String(pulse));
-
-      // Update audio tone
-      if (soundEnabled){
-        const type = inferPhaseType(phase);
-        setToneForPhase(type, t);
-      }
-
-      if (elapsed >= durMs){
-        stepToNextPhase();
-      }
-
+      if (soundEnabled){ setToneForPhase(inferPhaseType(phase), t); }
+      if (elapsed >= durMs){ stepToNextPhase(); }
       rafId = requestAnimationFrame(tick);
     }
 
     function start(){
       if (running) return;
       running = true;
-
-      // Resume audio context (required after user gesture on mobile)
       if (soundEnabled) resumeAudio();
-
-      // Request wake lock
       requestWakeLock();
-
       const hadPhase = currentPhase() !== null;
       if (!hadPhase) startPhase(-1, 0);
       else startPhase(phaseIndex, pausedPhaseElapsedMs);
-
       rafId = requestAnimationFrame(tick);
       startBackgroundTimer();
       setStatus();
@@ -1237,17 +1092,13 @@
     function stop(){
       if (!running) return;
       running = false;
-
       const now = performance.now();
       pausedPhaseElapsedMs = now - phaseStartMs;
-
       if (rafId) cancelAnimationFrame(rafId);
       rafId = null;
-
       stopBackgroundTimer();
       releaseWakeLock();
       silenceTone();
-
       document.documentElement.style.setProperty('--phasePulse', '0');
       setStatus();
       phaseMini.textContent = 'Paused';
@@ -1257,16 +1108,16 @@
       running = false;
       if (rafId) cancelAnimationFrame(rafId);
       rafId = null;
-
       stopBackgroundTimer();
       releaseWakeLock();
       silenceTone();
-
       cycles = 0;
       phaseIndex = -1;
       phaseStartMs = 0;
       pausedPhaseElapsedMs = 0;
-
+      workingSequence = buildWorkingSequence(technique);
+      renderPhaseControls();
+      updateCycleLengthDisplay();
       document.documentElement.style.setProperty('--phasePulse', '0');
       setCircleProgress(0);
       showPhaseLabel(null);
@@ -1276,8 +1127,9 @@
     function changeTechniqueById(id){
       const next = TECHNIQUES.find(t => t.id === id) || TECHNIQUES[0];
       technique = next;
+      workingSequence = buildWorkingSequence(next);
       updateTechniqueUI();
-
+      renderPhaseControls();
       stop();
       phaseIndex = -1;
       phaseStartMs = 0;
@@ -1294,19 +1146,10 @@
         if (!map.has(cat)) map.set(cat, []);
         map.get(cat).push(t);
       }
-      const order = [
-        'Calm & Sleep',
-        'Focus & Steady',
-        'Cooling & Reset',
-        'Breathing Control (CO\u2082 Tolerance)',
-        'Energize (Intense)',
-        'Other',
-      ];
+      const order = ['Calm & Sleep','Focus & Steady','Cooling & Reset','Breathing Control (CO\u2082 Tolerance)','Energize (Intense)','Other'];
       const entries = Array.from(map.entries());
       entries.sort((a,b) => order.indexOf(a[0]) - order.indexOf(b[0]));
-      for (const [cat, arr] of entries){
-        arr.sort((x,y) => x.name.localeCompare(y.name));
-      }
+      for (const [cat, arr] of entries){ arr.sort((x,y) => x.name.localeCompare(y.name)); }
       return entries;
     }
 
@@ -1330,12 +1173,8 @@
     startStopBtn.addEventListener('click', () => running ? stop() : start());
     resetBtn.addEventListener('click', reset);
     techniqueSel.addEventListener('change', (e) => changeTechniqueById(e.target.value));
-
     window.addEventListener('keydown', (e) => {
-      if (e.code === 'Space'){
-        e.preventDefault();
-        running ? stop() : start();
-      }
+      if (e.code === 'Space'){ e.preventDefault(); running ? stop() : start(); }
       if (e.key.toLowerCase() === 'r') reset();
     });
 
